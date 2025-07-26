@@ -1,0 +1,123 @@
+{
+    "name": "Telegram to Google Calendar with Duration",
+    "nodes": [
+        {
+            "parameters": {
+                "updates": {
+                    "chatMessage": true
+                }
+            },
+            "id": "Telegram Trigger",
+            "name": "Telegram Trigger",
+            "type": "n8n-nodes-base.telegramTrigger",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "chatCompletion": {
+                    "model": "gpt-3.5-turbo",
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "Voc\u00ea \u00e9 um assistente que ajuda a Nat\u00e1lia a criar eventos no Google Calendar. Hoje \u00e9 {{ $now.format('YYYY-MM-DD') }}.\n\nQuando ela disser algo como:\n- '/evento Reuni\u00e3o amanh\u00e3 9h por 30 minutes'\n- '/evento Reuni\u00e3o pr\u00f3ximo s\u00e1bado 9h por 1 hour 30 minutes'\n- '/evento Caf\u00e9 dia 15 \u00e0s 14h por 2 hours'\n\nretorne JSON exatamente assim:\n{\n  \"summary\": \"T\u00edtulo do evento\",\n  \"start\": \"2025-07-13T09:00:00-03:00\",\n  \"duration\": \"1 hour 30 minutes\",\n  \"location\": \"\"\n}\nN\u00e3o explique nada, apenas retorne o JSON."
+                        },
+                        {
+                            "role": "user",
+                            "content": "{{$json[\"message\"][\"text\"]}}"
+                        }
+                    ]
+                }
+            },
+            "id": "AI Agent",
+            "name": "AI Agent",
+            "type": "n8n-nodes-base.openAiChat",
+            "typeVersion": 1,
+            "position": [
+                450,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "functionCode": "const parts = $json[\"duration\"].split(' ');\nconst start = new Date($json[\"start\"]);\nlet end = new Date(start);\nfor (let i = 0; i < parts.length; i += 2) {\n  const value = parseInt(parts[i]);\n  const unit = parts[i+1];\n  if (unit.startsWith('hour')) {\n    end.setHours(end.getHours() + value);\n  } else if (unit.startsWith('minute')) {\n    end.setMinutes(end.getMinutes() + value);\n  }\n}\nreturn [{\n  json: {\n    summary: $json[\"summary\"],\n    start: $json[\"start\"],\n    end: end.toISOString(),\n    location: $json[\"location\"]\n  }\n}];"
+            },
+            "id": "Function",
+            "name": "Calculate End",
+            "type": "n8n-nodes-base.function",
+            "typeVersion": 1,
+            "position": [
+                650,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "create",
+                "calendar": "primary",
+                "summary": "={{$json[\"summary\"]}}",
+                "start": "={{$json[\"start\"]}}",
+                "end": "={{$json[\"end\"]}}",
+                "location": "={{$json[\"location\"]}}"
+            },
+            "id": "Google Calendar",
+            "name": "Create Event in Google Calendar",
+            "type": "n8n-nodes-base.googleCalendar",
+            "typeVersion": 1,
+            "position": [
+                850,
+                300
+            ],
+            "credentials": {
+                "googleApi": "Google Calendar account"
+            }
+        },
+        {
+            "parameters": {
+                "chatId": "={{$json[\"message\"][\"chat\"][\"id\"]}}",
+                "text": "\u2705 Evento '{{ $json[\"summary\"] }}' criado de {{ $json[\"start\"] }} a {{ $json[\"end\"] }}."
+            },
+            "id": "Telegram Send",
+            "name": "Send a Telegram message",
+            "type": "n8n-nodes-base.telegram",
+            "typeVersion": 1,
+            "position": [
+                1050,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Telegram Trigger": {
+            "main": [
+                [
+                    "AI Agent"
+                ]
+            ]
+        },
+        "AI Agent": {
+            "main": [
+                [
+                    "Function"
+                ]
+            ]
+        },
+        "Function": {
+            "main": [
+                [
+                    "Google Calendar"
+                ]
+            ]
+        },
+        "Google Calendar": {
+            "main": [
+                [
+                    "Telegram Send"
+                ]
+            ]
+        }
+    }
+}
