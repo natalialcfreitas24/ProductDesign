@@ -1,0 +1,613 @@
+{
+  "name": "Bot Agenda",
+  "nodes": [
+    {
+      "parameters": {
+        "functionCode": "const obj = JSON.parse($json[\"output\"]);\n\nconst parts = obj[\"duration\"].split(' ');\nconst start = new Date(obj[\"start\"]);\nlet end = new Date(start);\n\nfor (let i = 0; i < parts.length; i += 2) {\n  const value = parseInt(parts[i]);\n  const unit = parts[i+1];\n  if (unit.startsWith('hour')) {\n    end.setHours(end.getHours() + value);\n  } else if (unit.startsWith('minute')) {\n    end.setMinutes(end.getMinutes() + value);\n  }\n}\n\nreturn [{\n  json: {\n    summary: obj[\"summary\"],\n    start: obj[\"start\"],\n    end: end.toISOString(),\n    location: obj[\"location\"]\n  }\n}];"
+      },
+      "id": "94673b3f-f727-402e-bee3-3bbeff9c2247",
+      "name": "Calculate End",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1720,
+        180
+      ],
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "calendar": "primary",
+        "start": "={{$json[\"start\"]}}",
+        "end": "={{$json[\"end\"]}}",
+        "additionalFields": {
+          "location": "={{ $json[\"Local\"] }}",
+          "summary": "={{ $json[\"Título\"] }}"
+        }
+      },
+      "id": "22973227-9c1c-4fdf-a5d8-23815774a1e5",
+      "name": "Create Event in Google Calendar1",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [
+        2220,
+        180
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "7r5Up8tiSqlejOUM",
+          "name": "Google Calendar account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message.text }}",
+        "options": {
+          "systemMessage": "Você é um assistente que ajuda a Natália a criar eventos no Google Calendar.\nHoje é {{ $now.format('2025-07-12') }}.\n\nQuando ela disser algo como:\n- '/evento Reunião amanhã 9h por 30 minutes'\n- '/evento Reunião próximo sábado 9h por 1 hour 30 minutes'\n- '/evento Café dia 15 às 14h por 2 hours'\n\nretorne JSON exatamente assim, com as datas já resolvidas, sem nenhuma template n8n ou código:\n{\n  \"summary\": \"Reunião\",\n  \"start\": \"2025-07-13T09:00:00-03:00\",\n  \"duration\": \"1 hour 30 minutes\",\n  \"location\": \"\"\n}\nNão explique nada, apenas retorne o JSON puro."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        180
+      ],
+      "id": "afc53e5e-556d-473f-ae23-4818ed85ff03",
+      "name": "AI Agent2",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1360,
+        400
+      ],
+      "id": "f02a1bdb-1a04-4c1e-9807-32c3983e50a9",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "F5gHxvFGy6gH7PuO",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "typeVersion": 1,
+      "position": [
+        1500,
+        400
+      ],
+      "id": "a107d72d-deba-4464-94c3-b804590d1340",
+      "name": "Calculator1"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        860,
+        -20
+      ],
+      "id": "5a8d766b-5bc4-4876-ac7d-b122bc661a55",
+      "name": "Telegram Trigger",
+      "webhookId": "4bc7d6b2-3c5c-4cff-bd8b-407104f17afe",
+      "credentials": {
+        "telegramApi": {
+          "id": "ZW8M49vUGBQXSs1g",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=✅ Evento: {{ $json[\"Título\"] }} Início: {{ $json[\"Início\"] }} Fim: {{ $json[\"Fim\"] }}.\n{{ $json[\"Local\"] ? \"📍 Veja no Maps: \" + $json[\"Local\"] : \"\" }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2220,
+        360
+      ],
+      "id": "05302f95-773f-4154-ae31-79ed038539ea",
+      "name": "Send a text message",
+      "webhookId": "fdde8e22-da1e-4253-ba5a-276a01dbee8c",
+      "credentials": {
+        "telegramApi": {
+          "id": "ZW8M49vUGBQXSs1g",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "Título",
+              "value": "={{ $json[\"summary\"] }}\n\n"
+            },
+            {
+              "name": "Início",
+              "value": "={{ new Date($json[\"start\"]).toLocaleString(\"pt-BR\", { timeZone: \"America/Sao_Paulo\", hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) }}\n"
+            },
+            {
+              "name": "Fim",
+              "value": "={{ new Date($json[\"end\"]).toLocaleString(\"pt-BR\", { timeZone: \"America/Sao_Paulo\", hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) }}\n"
+            },
+            {
+              "name": "Local",
+              "value": "={{ $json[\"location\"] ? \"https://www.google.com/maps/search/?api=1&query=\" + encodeURIComponent($json[\"location\"]) : \"\" }}\n"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6e23c655-aaf6-4f87-bbd3-eca5306a8e42",
+      "name": "Set1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message.text }}",
+        "options": {
+          "systemMessage": "Você é um assistente que ajuda a Natália a consultar os eventos no Google Calendar.\nHoje é {{ $now.format('2025-07-12') }}.\n\nQuando ela disser algo como:\n- '/agenda hoje'\n- '/agenda amanhã'\n- '/agenda dia 15'\n- '/agenda próximo sábado'\n\nretorne JSON exatamente assim, com as datas já resolvidas para o período solicitado, e inclua o campo \"location\" caso ela mencione algum lugar. Exemplo:\n\n{\n  \"summary\": \"Agenda do dia\",\n  \"start\": \"2025-07-13T00:00:00-03:00\",\n  \"end\": \"2025-07-13T23:59:59-03:00\",\n  \"location\": \"Avenida Paulista, São Paulo\"\n}\n\nSe não houver localização, deixe o campo vazio:\n{\n  \"summary\": \"Agenda do dia\",\n  \"start\": \"2025-07-13T00:00:00-03:00\",\n  \"end\": \"2025-07-13T23:59:59-03:00\",\n  \"location\": \"\"\n}\n\nNão explique nada, apenas retorne o JSON puro."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        -220
+      ],
+      "id": "f6573e44-cae6-4480-b7ee-125423b60c96",
+      "name": "AI Agent",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1360,
+        -20
+      ],
+      "id": "23b2575d-da83-4f34-adca-e8d4e87a3012",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "F5gHxvFGy6gH7PuO",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        -20
+      ],
+      "id": "ac1ce15d-5f0e-471f-b1ff-2d0bd0ed8795",
+      "name": "Calculator"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').first().json.message.chat.id }}",
+        "text": "={{ $json[\"mensagem\"] }}\n",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2700,
+        -220
+      ],
+      "id": "8e441d2f-049c-483c-ab45-30d742cc658d",
+      "name": "Send a text message1",
+      "webhookId": "fdde8e22-da1e-4253-ba5a-276a01dbee8c",
+      "credentials": {
+        "telegramApi": {
+          "id": "ZW8M49vUGBQXSs1g",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "Título",
+              "value": "={{ $json[\"summary\"] }}\n\n"
+            },
+            {
+              "name": "Início",
+              "value": "={{ new Date($json[\"start\"]).toLocaleString(\"pt-BR\", { timeZone: \"America/Sao_Paulo\", hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) }}\n"
+            },
+            {
+              "name": "Fim",
+              "value": "={{ new Date($json[\"end\"]).toLocaleString(\"pt-BR\", { timeZone: \"America/Sao_Paulo\", hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) }}\n"
+            },
+            {
+              "name": "Local",
+              "value": "={{ $json[\"location\"] ? \"https://www.google.com/maps/search/?api=1&query=\" + encodeURIComponent($json[\"location\"]) : \"\" }}\n"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5e086209-351d-4767-948f-66c80070a28d",
+      "name": "Set",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        -220
+      ],
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json[\"message\"][\"text\"]\n}} ",
+                    "rightValue": "evento",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "id": "e5a73309-df3b-4bfc-b289-96afb602ed6c"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "eed879d2-024b-48ec-82da-c9a05df5bb20",
+                    "leftValue": "={{ $json[\"message\"][\"text\"] }} ",
+                    "rightValue": "agenda",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1060,
+        -20
+      ],
+      "id": "10a4538d-22a7-4c15-8ef2-26529a0ac819",
+      "name": "Switch",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "natalialcfreitas24@gmail.com",
+          "mode": "list",
+          "cachedResultName": "natalialcfreitas24@gmail.com"
+        },
+        "returnAll": true,
+        "options": {
+          "timeMin": "={{ $json[\"start\"] }}",
+          "timeMax": "={{ $json[\"end\"].trim() }}"
+        }
+      },
+      "id": "3876e4c2-5652-405d-b7d7-6208d1b9e2fb",
+      "name": "Get Event from Google Calendar",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [
+        2120,
+        -100
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "7r5Up8tiSqlejOUM",
+          "name": "Google Calendar account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "const items = $items();\nconst dadosPesquisa = items[0].json;\n\n// Pega a data do início ou start (garante o que foi pesquisado)\nconst dataBase = dadosPesquisa.Inicio || dadosPesquisa.start;\nconst dataConsulta = new Date(dataBase);\n\nconst dia = String(dataConsulta.getDate()).padStart(2, '0');\nconst mes = String(dataConsulta.getMonth() + 1).padStart(2, '0');\nconst ano = dataConsulta.getFullYear();\n\nlet texto = `📅 *Agenda do dia ${dia}/${mes}/${ano}*\\n\\n`;\n\n// Filtra itens que não são apenas o header\nconst eventos = items.slice(1).filter(item => {\n  return item.json.summary !== \"Agenda do dia\";\n});\n\nif (eventos.length === 0) {\n  texto += `✅ *Não há eventos agendados para esta data!*`;\n} else {\n  let eventosFormatados = \"\";\n  for (const item of eventos) {\n    const evento = item.json;\n    const summary = evento.summary || \"Evento sem nome\";\n\n    let start = \"Horário não informado\";\n    if (evento.start?.dateTime) {\n      start = new Date(evento.start.dateTime).toLocaleTimeString(\"pt-BR\", {\n        hour: \"2-digit\",\n        minute: \"2-digit\",\n        timeZone: \"America/Sao_Paulo\"\n      });\n    }\n\n    let end = \"Horário não informado\";\n    if (evento.end?.dateTime) {\n      end = new Date(evento.end.dateTime).toLocaleTimeString(\"pt-BR\", {\n        hour: \"2-digit\",\n        minute: \"2-digit\",\n        timeZone: \"America/Sao_Paulo\"\n      });\n    }\n\n    const local = evento.location\n      ? `\\n📍 [Ver no Maps](https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(evento.location)})`\n      : \"\";\n\n    eventosFormatados += `🕒 *${start} às ${end}*\\n📌 ${summary}${local}\\n\\n`;\n  }\n  texto += eventosFormatados.trim();\n}\n\nreturn [{ json: { mensagem: texto } }];\n"
+      },
+      "name": "Format Agenda Message1",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        2500,
+        -220
+      ],
+      "id": "c7f15f05-3db0-41c3-9988-c77e27515714"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2300,
+        -220
+      ],
+      "id": "96cc723d-25dc-4d99-b988-020fdb0af13c",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "functionCode": "const obj = JSON.parse($json[\"output\"]);\n\n// Usa o start existente para pegar o dia\nconst data = new Date(obj.start);\n\n// Cria início do dia\nconst start = new Date(data);\nstart.setHours(0, 0, 0, 0);\nconst startISO = start.toISOString().replace('Z', '-03:00');\n\n// Cria fim do dia\nconst end = new Date(data);\nend.setHours(23, 59, 59, 999);\nconst endISO = end.toISOString().replace('Z', '-03:00');\n\nreturn [{\n  json: {\n    summary: obj.summary || \"Agenda do dia\",\n    start: startISO,\n    end: endISO,\n    location: obj.location || \"\"\n  }\n}];\n"
+      },
+      "id": "15fcd2d6-c9ce-4f99-bbaf-41ac422df8cd",
+      "name": "Calculate End1",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1720,
+        -220
+      ],
+      "alwaysOutputData": false
+    }
+  ],
+  "connections": {
+    "Calculate End": {
+      "main": [
+        [
+          {
+            "node": "Set1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Event in Google Calendar1": {
+      "main": [
+        []
+      ]
+    },
+    "AI Agent2": {
+      "main": [
+        [
+          {
+            "node": "Calculate End",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculator1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set1": {
+      "main": [
+        [
+          {
+            "node": "Create Event in Google Calendar1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Calculate End1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculator": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set": {
+      "main": [
+        [
+          {
+            "node": "Get Event from Google Calendar",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Event from Google Calendar": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Format Agenda Message1": {
+      "main": [
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Format Agenda Message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate End1": {
+      "main": [
+        [
+          {
+            "node": "Set",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {},
+  "triggerCount": 1,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

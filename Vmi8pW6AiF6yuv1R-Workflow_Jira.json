@@ -1,0 +1,303 @@
+{
+  "name": "Workflow Jira",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "basicAuth",
+        "url": "https://natalialcfreitas24.atlassian.net/rest/api/3/search",
+        "responseFormat": "string",
+        "options": {},
+        "headerParametersUi": {
+          "parameter": []
+        },
+        "queryParametersUi": {
+          "parameter": [
+            {
+              "name": "jql",
+              "value": "project = MAN ORDER BY created ASC"
+            },
+            {
+              "name": "maxResults",
+              "value": "100"
+            },
+            {
+              "name": "fields",
+              "value": "summary,status,comment,description,created"
+            }
+          ]
+        }
+      },
+      "id": "17bf8dc5-758a-4947-8268-b0f0daaaa64d",
+      "name": "Get all issues1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        0,
+        720
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "oicFicpFsh5ERQsh",
+          "name": "Credencial Jira"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -180,
+        720
+      ],
+      "id": "ff38cd72-4c1e-4e46-92b9-d519f0d4f77a",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "authentication": "basicAuth",
+        "url": "https://natalialcfreitas24.atlassian.net/rest/api/3/search",
+        "responseFormat": "string",
+        "options": {},
+        "headerParametersUi": {
+          "parameter": []
+        },
+        "queryParametersUi": {
+          "parameter": [
+            {
+              "name": "jql",
+              "value": "project = MAN ORDER BY created ASC"
+            },
+            {
+              "name": "maxResults",
+              "value": "100"
+            },
+            {
+              "name": "fields",
+              "value": "summary,status,comment,description,created"
+            }
+          ]
+        }
+      },
+      "id": "d15c626a-b0bd-4db2-9990-5a2b8ea14029",
+      "name": "Get all issues2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        660,
+        900
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "oicFicpFsh5ERQsh",
+          "name": "Credencial Jira"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24,
+              "triggerAtMinute": 1
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        560,
+        3960
+      ],
+      "id": "0b3714ce-4d55-4730-b754-d03bcf333627",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "functionCode": "const issues = items[0].json.data.issues;\n\nconst formatDate = (dateString) => {\n  const date = new Date(dateString);\n  return date.toLocaleDateString('pt-BR'); // DD/MM/AAAA\n};\n\nreturn issues.map(issue => {\n  // inicializa\n  let faturamento = \"\";\n  let produto = \"\";\n  let observacoes = \"\";\n\n  // verifica se tem description\n  if (issue.fields.description && issue.fields.description.content) {\n    for (let para of issue.fields.description.content) {\n      if (para.content && para.content[0] && para.content[0].text) {\n        let line = para.content[0].text;\n        \n        if (line.includes(\"Faturamento Conecta\")) {\n          faturamento = line.replace(\"Faturamento Conecta:\", \"\").trim();\n        }\n        \n        if (line.includes(\"Produto\")) {\n          produto = line.replace(\"Produto:\", \"\").trim();\n        }\n      }\n    }\n  }\n\n  // pega último comentário (se existir)\n  if (issue.fields.comment && issue.fields.comment.comments.length > 0) {\n    const lastComment = issue.fields.comment.comments.slice(-1)[0];\n    if (lastComment.body && lastComment.body.content) {\n      // junta textos do body\n      observacoes = lastComment.body.content\n        .map(para => para.content?.map(c => c.text).join(\" \").trim())\n        .join(\"\\n\")\n        .trim();\n    }\n  }\n\n  return {\n    json: {\n      \"Data de Criação\": formatDate(issue.fields.created),\n      \"Cliente\": issue.fields.summary,\n      \"Status\": issue.fields.status.name,\n      \"Faturamento Conecta\": faturamento,\n      \"Produto\": produto,\n      \"Observações\": observacoes,\n      \"Registro\": issue.key\n    }\n  };\n});"
+      },
+      "id": "24709773-4287-44cb-97f0-ddba561b4e07",
+      "name": "Extrair Campos ",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        840,
+        900
+      ],
+      "executeOnce": false,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "functionCode": "const issues = items[0].json.data.issues;\n\nconst formatDate = (dateString) => {\n  const date = new Date(dateString);\n  return date.toLocaleDateString('pt-BR'); // DD/MM/AAAA\n};\n\nreturn issues.map(issue => {\n  // inicializa\n  let faturamento = \"\";\n  let produto = \"\";\n  let observacoes = \"\";\n\n  // verifica se tem description\n  if (issue.fields.description && issue.fields.description.content) {\n    for (let para of issue.fields.description.content) {\n      if (para.content && para.content[0] && para.content[0].text) {\n        let line = para.content[0].text;\n        \n        if (line.includes(\"Faturamento Conecta\")) {\n          faturamento = line.replace(\"Faturamento Conecta:\", \"\").trim();\n        }\n        \n        if (line.includes(\"Produto\")) {\n          produto = line.replace(\"Produto:\", \"\").trim();\n        }\n      }\n    }\n  }\n\n  // pega último comentário (se existir)\n  if (issue.fields.comment && issue.fields.comment.comments.length > 0) {\n    const lastComment = issue.fields.comment.comments.slice(-1)[0];\n    if (lastComment.body && lastComment.body.content) {\n      // junta textos do body\n      observacoes = lastComment.body.content\n        .map(para => para.content?.map(c => c.text).join(\" \").trim())\n        .join(\"\\n\")\n        .trim();\n    }\n  }\n\n  return {\n    json: {\n      \"Data de Criação\": formatDate(issue.fields.created),\n      \"Cliente\": issue.fields.summary,\n      \"Status\": issue.fields.status.name,\n      \"Faturamento Conecta\": faturamento,\n      \"Produto\": produto,\n      \"Observações\": observacoes,\n      \"Registro\": issue.key\n    }\n  };\n});"
+      },
+      "id": "dca3b821-a349-48db-a9c1-f07e09cb2a56",
+      "name": "Extrair Campos Inicial",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        180,
+        720
+      ],
+      "executeOnce": false,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "sheetId": "1dTiNVXC6rNjwziyHMIsN-lkARGqWIXQi8fxyG1n3h-c",
+        "range": "Sheet1!A:G",
+        "options": {}
+      },
+      "id": "498533b4-5cd0-4c7b-a351-6cef91d65ed8",
+      "name": "Google Sheets Inicial",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        360,
+        720
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleApi": {
+          "id": "68XhIHl6mIkBbUq0",
+          "name": "Google Sheets account 6"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "sheetId": "1dTiNVXC6rNjwziyHMIsN-lkARGqWIXQi8fxyG1n3h-c",
+        "range": "Sheet1!A:G",
+        "key": "Cliente",
+        "options": {
+          "valueRenderMode": "FORMATTED_VALUE"
+        }
+      },
+      "id": "691dfb6a-644b-4625-b781-3de823eba031",
+      "name": "Update",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 1,
+      "position": [
+        1020,
+        900
+      ],
+      "credentials": {
+        "googleApi": {
+          "id": "68XhIHl6mIkBbUq0",
+          "name": "Google Sheets account 6"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "f4f71e8c-f286-4f56-af7f-2a9138add32b",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        460,
+        900
+      ],
+      "id": "9a48acc1-1bc3-491e-bd24-87717c7d1854",
+      "name": "Webhook",
+      "webhookId": "f4f71e8c-f286-4f56-af7f-2a9138add32b"
+    }
+  ],
+  "connections": {
+    "Get all issues1": {
+      "main": [
+        [
+          {
+            "node": "Extrair Campos Inicial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Get all issues1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get all issues2": {
+      "main": [
+        [
+          {
+            "node": "Extrair Campos ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        []
+      ]
+    },
+    "Extrair Campos ": {
+      "main": [
+        [
+          {
+            "node": "Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair Campos Inicial": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets Inicial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get all issues2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": {
+    "node:Schedule Trigger": {
+      "recurrenceRules": [
+        0
+      ]
+    }
+  },
+  "pinData": {},
+  "triggerCount": 2,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
